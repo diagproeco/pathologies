@@ -38,6 +38,7 @@ button:disabled{opacity:.55}
 .list{display:grid;gap:8px}
 .pat{justify-content:space-between;text-align:left;font-size:17px;width:100%}
 .off{opacity:.45;text-decoration:line-through}
+.autre{width:100%;border-style:dashed;border-width:2px;color:var(--g);font-weight:700;background:var(--gl)}
 .tag{background:var(--g);color:#fff;border-radius:99px;font-size:13px;padding:2px 10px;font-weight:600;white-space:nowrap}
 .tag.gris{background:var(--line);color:var(--ink)}
 .back{border:0;background:none;color:var(--g);font-weight:700;padding-left:0}
@@ -241,7 +242,10 @@ function updateBar(){$("relBtn").textContent="Relevé ("+visit.items.length+")"}
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),2200)}
 
 /* ---------- Textes ---------- */
-function build(it){if(it.nz)return it.t;const t=it.t.replace(/\.\s*$/,""),ph=lieu(it.zones);return (t.includes("@")?t.replace("@",ph):t+ph)+"."}
+function build(it){if(it.nz)return it.t;let t=it.t.trim().replace(/\.\s*$/,"");if(!t)return "";t=t.charAt(0).toUpperCase()+t.slice(1);const ph=lieu(it.zones);return (t.includes("@")?t.replace("@",ph):t+ph)+"."}
+const court=t=>{t=String(t||"").trim().replace(/\.\s*$/,"");return t.length>45?t.slice(0,45).replace(/\s+\S*$/,"")+"…":t};
+const nomAff=i=>{if(!i.libre)return i.nom;const t=court(i.t);return "Autre : "+(t?t.charAt(0).toUpperCase()+t.slice(1):"à écrire")};
+const apercu=it=>it.zones.length&&it.constat?"Dans le relevé : "+it.constat:"";
 function toggleZone(it,z){
   const oldPh=lieu(it.zones);
   it.zones=it.zones.includes(z)?it.zones.filter(x=>x!==z):[...it.zones,z];
@@ -296,18 +300,18 @@ function dropPhoto(ph){if(urls[ph.f])URL.revokeObjectURL(urls[ph.f]);delete urls
 function removeItem(it){it.ph.forEach(dropPhoto);visit.items=visit.items.filter(i=>i!==it)}
 function dlBlob(b,name){const a=document.createElement("a"),u=URL.createObjectURL(b);a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 const propre=t=>t.replace(/[\\/:*?"<>|]/g," ").replace(/\s+/g," ").trim();
-function savePhoto(it,ph){const b=blobs[ph.f];if(!b)return toast("Photo introuvable");const n=it.ph.indexOf(ph)+1;dlBlob(b,propre("Pathologie "+(visit.nom?visit.nom+" ":"")+it.nom+" "+n)+".jpg");toast("Photo enregistrée dans Téléchargements")}
+function savePhoto(it,ph){const b=blobs[ph.f];if(!b)return toast("Photo introuvable");const n=it.ph.indexOf(ph)+1;dlBlob(b,propre("Pathologie "+(visit.nom?visit.nom+" ":"")+nomAff(it)+" "+n)+".jpg");toast("Photo enregistrée dans Téléchargements")}
 
 /* ---------- Envoi dans Claude : bouton Partager du téléphone ---------- */
 let stTxt="",lot=0;
 function setSt(t){stTxt=t;const e=$("st");if(e)e.textContent=t}
 const MAXP=20;
-function photosNum(){let n=0;const out=[];catsUsed().forEach(c=>itemsOf(c.id).forEach(i=>i.ph.forEach(p=>{n++;out.push({c,i,p,n,name:propre(String(n).padStart(2,"0")+" "+c.s+" - "+i.nom)+".jpg"})})));return out}
+function photosNum(){let n=0;const out=[];catsUsed().forEach(c=>itemsOf(c.id).forEach(i=>i.ph.forEach(p=>{n++;out.push({c,i,p,n,name:propre(String(n).padStart(2,"0")+" "+c.s+" - "+nomAff(i))+".jpg"})})));return out}
 function texteEnvoi(all,nbLots){
   const date=new Date(visit.debut).toLocaleDateString("fr-FR");
   let t="Pathologies de l'audit relevées avec l'appli Pathologies audit"+(visit.nom?", visite « "+visit.nom+" »":"")+", le "+date+".\n";
   if(all.length)t+="Photos numérotées dans l'ordre d'envoi"+(nbLots>1?" ("+nbLots+" envois de "+MAXP+" photos au plus)":"")+".\n";
-  return t+"\n"+catsUsed().map(c=>{const g={};all.filter(x=>x.c===c).forEach(x=>{(g[x.i.nom]=g[x.i.nom]||[]).push(String(x.n))});
+  return t+"\n"+catsUsed().map(c=>{const g={};all.filter(x=>x.c===c).forEach(x=>{(g[nomAff(x.i)]=g[nomAff(x.i)]||[]).push(String(x.n))});
     const lp=Object.keys(g).map(k=>"n° "+et(g[k])+" ("+k+")");
     return texteDesc(c)+"\nConseil :\n"+texteCons(c)+(lp.length?"\nPhotos : "+lp.join(" ; "):"")}).join("\n\n");
 }
@@ -344,7 +348,7 @@ function render(){
   const v=$("view");
   if(view==="home"){
     v.innerHTML='<div class="grid">'+CATS.map(c=>{const n=itemsOf(c.id).length;return '<button type="button" class="cat'+(n?" has":"")+'" data-c="'+c.id+'"><span>'+esc(c.s)+'</span><small>'+(n?n+" relevée"+(n>1?"s":""):shown(c).length+" proposées")+'</small></button>'}).join("")+'</div>'+
-    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 1 du 23/11/2026</p>';
+    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 2 du 23/11/2026</p>';
   }else if(view==="cat"){
     const c=CAT(cur),ps=shown(c);
     let h='<button type="button" class="back" data-act="home">‹ Catégories</button><h2>'+esc(c.t)+'</h2>';
@@ -352,7 +356,8 @@ function render(){
     h+='<div class="list">'+ps.map((p,i)=>{
       if(edit){const off=hidden.includes(c.id+"|"+p.n);return '<button type="button" class="pat" data-h="'+i+'"><span class="'+(off?"off":"")+'">'+esc(p.n)+'</span><span class="tag'+(off?" gris":"")+'">'+(off?"Masquée":"Affichée")+'</span></button>'}
       const it=visit.items.find(x=>x.cat===c.id&&x.nom===p.n);
-      return '<button type="button" class="pat" data-p="'+i+'"><span>'+esc(p.n)+'</span>'+(it?'<span class="tag">Relevée</span>':'')+'</button>'}).join("")+'</div>';
+      return '<button type="button" class="pat" data-p="'+i+'"><span>'+esc(p.n)+'</span>'+(it?'<span class="tag">Relevée</span>':'')+'</button>'}).join("")+
+      (edit?'':itemsOf(c.id).filter(x=>x.libre).map(x=>'<button type="button" class="pat" data-it="'+x.id+'"><span>'+esc(nomAff(x))+'</span><span class="tag">Relevée</span></button>').join("")+'<button type="button" class="autre" data-act="autre">+ Autre (texte libre)</button>')+'</div>';
     if(edit)h+='<div class="row"><button type="button" class="send" data-act="newPat">+ Ajouter une pathologie</button></div><p class="note">Touche une pathologie pour la masquer ou la réafficher.</p>';
     v.innerHTML=h;
   }else{
@@ -361,11 +366,11 @@ function render(){
     h+='<div class="row"><button type="button" class="send wide" data-act="send">Envoyer dans Claude</button><button type="button" class="wide" data-act="copyAll">Copier tout</button></div><p class="st" id="st">'+esc(stTxt)+'</p>';
     catsUsed().forEach(c=>{const its=itemsOf(c.id),phs=its.flatMap(i=>i.ph.map(p=>[i,p]));
       h+='<section class="card"><h3>'+esc(titre(c))+'</h3>'+(c.id==="toit"?'<button type="button" class="chip'+(visit.toitures?" on":"")+'" data-act="toitures">Plusieurs toitures</button>':'')+
-      its.map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat)+'</button>').join("")+
+      its.map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||"Autre : constat à écrire")+'</button>').join("")+
       (c.tail?'<p class="tail">• '+esc(c.tail)+'</p>':'')+
       '<label for="cons-'+c.id+'">Conseil</label><textarea id="cons-'+c.id+'" data-cons="'+c.id+'">'+esc(consText(c))+'</textarea>'+
       (visit.cons[c.id]!=null?'<button type="button" class="lnk" data-rc="'+c.id+'">Remettre le conseil automatique</button>':'')+
-      '<div class="lab">Photos ('+phs.length+')</div><div class="thumbs">'+(phs.length?phs.map(([i,p])=>'<img src="'+esc(srcOf(p))+'" data-v="'+i.id+'|'+p.f+'" alt="Photo : '+esc(i.nom)+'">').join(""):'<span class="sub">Aucune photo</span>')+'</div>'+
+      '<div class="lab">Photos ('+phs.length+')</div><div class="thumbs">'+(phs.length?phs.map(([i,p])=>'<img src="'+esc(srcOf(p))+'" data-v="'+i.id+'|'+p.f+'" alt="Photo : '+esc(nomAff(i))+'">').join(""):'<span class="sub">Aucune photo</span>')+'</div>'+
       '<div class="row"><button type="button" data-cd="'+c.id+'">Copier la description</button><button type="button" data-cc="'+c.id+'">Copier le conseil</button></div></section>'});
     h+='<div class="row"><button type="button" class="del" data-act="reset">Nouvelle visite</button></div>';
     v.innerHTML=h;
@@ -373,11 +378,13 @@ function render(){
   fitAll(v);
 }
 function showPanel(h){open=null;const pn=$("panel");pn.classList.remove("hasfoot");pn.innerHTML=h;$("sheet").classList.add("on");fitAll(pn)}
-function closeSheet(){$("sheet").classList.remove("on");open=null;render()}
+function closeSheet(){const it=open&&item(open);if(it&&it.libre&&!it.t.trim()){removeItem(it);changed()}$("sheet").classList.remove("on");open=null;render()}
 function openSheet(id){open=id;$("sheet").classList.add("on");renderSheet();$("panel").scrollTop=0}
 function renderSheet(){
   const it=open&&item(open);if(!it)return;const c=CAT(it.cat),seen={};
-  let h='<h2>'+esc(it.nom)+'</h2><p class="sub">'+esc(titre(c))+'</p><label for="sc">Constat</label><textarea id="sc">'+esc(it.constat)+'</textarea>';
+  let h='<h2>'+esc(it.libre?"Autre constat":it.nom)+'</h2><p class="sub">'+esc(titre(c))+'</p>';
+  if(it.libre)h+='<label for="sl">Ton constat</label><textarea id="sl" placeholder="Ex. : présence d\'une fissure en escalier">'+esc(it.t)+'</textarea><p class="sub" id="apercu">'+esc(apercu(it))+'</p>'+(c.excl?'':'<button type="button" class="lnk" data-act="garder">Garder dans ma liste pour les prochaines visites</button>');
+  else h+='<label for="sc">Constat</label><textarea id="sc">'+esc(it.constat)+'</textarea>';
   if(!it.nz)c.z.forEach(([g,list])=>{const l=list.filter(z=>!seen[z]&&(seen[z]=1));if(l.length)h+='<div class="grp">'+esc(g)+'</div><div class="chips">'+l.map(z=>'<button type="button" class="chip'+(it.zones.includes(z)?" on":"")+'" data-z="'+esc(z)+'">'+esc(z)+'</button>').join("")+'</div>'});
   h+='<div class="lab">Photos ('+it.ph.length+')</div><div class="thumbs">'+it.ph.map(p=>'<img src="'+esc(srcOf(p))+'" data-v="'+it.id+'|'+p.f+'" alt="Photo">').join("")+
   '<button type="button" class="ph-add" data-act="gal">Galerie</button></div>'+
@@ -392,6 +399,7 @@ function closeViewer(){$("big").classList.remove("on");viewer=null}
 function addItem(c,p){
   if(c.excl)itemsOf(c.id).forEach(removeItem);
   const it={id:uid("i"),cat:c.id,nom:p.n,t:p.c,nz:!!p.nz,d:p.d||c.d||"",k:p.k||null,zones:[],ph:[],auto:true};
+  if(p.libre){it.libre=true;if(c.id==="ami")it.k=K_AMI}
   it.constat=build(it);visit.items.push(it);changed();return it;
 }
 function go(v){view=v;render();window.scrollTo(0,0)}
@@ -408,7 +416,7 @@ document.addEventListener("click",e=>{
   else if(b.dataset.c){cur=b.dataset.c;go("cat")}
   else if(b.dataset.p!==undefined){const c=CAT(cur),p=shown(c)[+b.dataset.p];if(!p)return;let it=visit.items.find(x=>x.cat===c.id&&x.nom===p.n);if(!it){it=addItem(c,p);toast("Ajouté au relevé")}render();openSheet(it.id)}
   else if(b.dataset.h!==undefined){const c=CAT(cur),p=shown(c)[+b.dataset.h];if(!p)return;const k=c.id+"|"+p.n;hidden=hidden.includes(k)?hidden.filter(x=>x!==k):[...hidden,k];LS.set("pa_hidden",hidden);render()}
-  else if(b.dataset.z){const it=item(open);if(!it)return;toggleZone(it,b.dataset.z);b.classList.toggle("on",it.zones.includes(b.dataset.z));$("sc").value=it.constat;fit($("sc"))}
+  else if(b.dataset.z){const it=item(open);if(!it)return;toggleZone(it,b.dataset.z);b.classList.toggle("on",it.zones.includes(b.dataset.z));const sc=$("sc");if(sc){sc.value=it.constat;fit(sc)}const ap=$("apercu");if(ap)ap.textContent=apercu(it)}
   else if(b.dataset.it)openSheet(b.dataset.it);
   else if(b.dataset.rc){delete visit.cons[b.dataset.rc];changed();render()}
   else if(b.dataset.cd)copy(texteDesc(CAT(b.dataset.cd)),"Description copiée");
@@ -417,6 +425,12 @@ document.addEventListener("click",e=>{
   else if(a==="close")closeSheet();
   else if(a==="cam"||a==="gal"){photoFor=open;$(a).click()}
   else if(a==="rmIt"){const it=item(open);if(!it)return;if(!b.dataset.sure){b.dataset.sure=1;b.textContent="Toucher encore pour retirer";return}removeItem(it);changed();closeSheet();toast("Retiré du relevé")}
+  else if(a==="autre"){const c=CAT(cur);const it=addItem(c,{n:"Autre",c:"",libre:1});render();openSheet(it.id);const t=$("sl");if(t)t.focus()}
+  else if(a==="garder"){const it=item(open);if(!it)return;const txt=it.t.trim().replace(/\.\s*$/,"");if(!txt){toast("Écris d'abord le constat");return}
+    const c=CAT(it.cat);let n=court(txt);n=n.charAt(0).toUpperCase()+n.slice(1);
+    if(patsOf(c).some(p=>p.n===n)){toast("Déjà dans ta liste");return}
+    (extra[c.id]=extra[c.id]||[]).push({n,c:txt,d:c.d||""});LS.set("pa_extra2",extra);
+    it.libre=false;it.nom=n;it.t=txt;it.auto=true;it.constat=build(it);changed();renderSheet();toast("Ajoutée à ta liste")}
   else if(a==="toitures"){visit.toitures=!visit.toitures;changed();render()}
   else if(a==="copyAll")copy(texteTout(),"Tout le relevé est copié");
   else if(a==="send")envoyer();
@@ -433,6 +447,7 @@ $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
 document.addEventListener("input",e=>{
   const t=e.target;if(t.tagName==="TEXTAREA")fit(t);
   if(t.id==="sc"){const it=item(open);if(!it)return;it.constat=t.value;it.auto=t.value===build(it);changed()}
+  else if(t.id==="sl"){const it=item(open);if(!it)return;it.t=t.value;it.constat=build(it);const ap=$("apercu");if(ap)ap.textContent=apercu(it);changed()}
   else if(t.dataset.cons){visit.cons[t.dataset.cons]=t.value;changed()}
   else if(t.id==="nom"){visit.nom=t.value;changed()}
 });
