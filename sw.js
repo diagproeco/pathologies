@@ -1,5 +1,5 @@
 /* Pathologies audit : garde une copie de l'appli pour l'ouvrir sans réseau.
-   Page : réseau d'abord (3,5 s au plus), sinon la copie ; le reste : la copie d'abord. */
+   Page : réseau d'abord, toujours la dernière version (3,5 s au plus), sinon la copie ; le reste : la copie d'abord. */
 const CACHE = "pathologies-v2";
 const FICHIERS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./icon-180.png"];
 self.addEventListener("install", (e) => {
@@ -17,7 +17,7 @@ self.addEventListener("fetch", (e) => {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       try {
-        const net = await Promise.race([fetch(r), new Promise((_, j) => setTimeout(() => j(new Error("lent")), 3500))]);
+        const net = await Promise.race([fetch(r.url, { cache: "no-store" }), new Promise((_, j) => setTimeout(() => j(new Error("lent")), 3500))]);
         if (net && net.ok) c.put("./index.html", net.clone());
         return net;
       } catch (err) {
