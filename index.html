@@ -654,11 +654,16 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 window.addEventListener("pageshow",e=>{if(e.persisted)reprendre()});
 
 /* ---------- Démarrage ---------- */
+function apresActivation(act){
+  if(act===true){showPanel('<h2>Envoi direct activé</h2><p>Sur ce téléphone, le relevé et les photos partent maintenant tout seuls dans ton Drive pro, dossier « Pathologies audit », dès qu\'il y a du réseau.</p><p class="dst" id="tst">Vérification de la connexion…</p><div class="row"><button type="button" class="main" data-act="close">OK</button></div>');testDrive();essai=0;dErr="";updateBar();planifier(1500)}
+  else if(act==="bad")toast("Lien d'activation illisible : redemande-le à Claude");
+}
 const act=activer();
 if(visit.envoye)stTxt="Dernier envoi le "+new Date(visit.envoye).toLocaleDateString("fr-FR")+".";
 render();
-if(act===true){showPanel('<h2>Envoi direct activé</h2><p>Sur ce téléphone, le relevé et les photos partent maintenant tout seuls dans ton Drive pro, dossier « Pathologies audit », dès qu\'il y a du réseau.</p><p class="dst" id="tst">Vérification de la connexion…</p><div class="row"><button type="button" class="main" data-act="close">OK</button></div>');testDrive()}
-else if(act==="bad")toast("Lien d'activation illisible : redemande-le à Claude");
+apresActivation(act);
+/* lien ouvert alors que l'appli est déjà affichée : seule la fin de l'adresse change, la page ne se recharge pas */
+window.addEventListener("hashchange",()=>apresActivation(activer()));
 (async()=>{idb=await (idbReady||(idbReady=idbOpen().then(d=>(idb=d))));await idbAll();pret=true;render();if(open)renderSheet();planifier(1500)})();
 window.addEventListener("online",()=>{essai=0;dErr="";planifier(300)});
 window.addEventListener("offline",()=>majDrive());
