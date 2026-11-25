@@ -518,7 +518,8 @@ function render(){
     v.innerHTML=h;
   }else{
     let h='<h2>Relevé de la visite</h2><label for="nom">Nom de la visite</label><input type="text" id="nom" placeholder="Commune, client…" value="'+esc(visit.nom)+'">';
-    if(!visit.items.length){v.innerHTML=h+'<p class="empty">Aucune pathologie relevée pour l\'instant.<br>Choisis une catégorie en bas à gauche.</p>';return}
+    if(!visit.items.length){v.innerHTML=h+'<p class="empty">Aucune pathologie relevée pour l\'instant.<br>Choisis une catégorie en bas à gauche.</p>'+
+      (drive?'<p class="dst ok" id="etatDrive">Envoi direct au Drive activé sur ce téléphone.</p>':'<p class="dst" id="etatDrive">Envoi direct au Drive pas encore activé sur ce téléphone.</p><button type="button" class="lnk" data-act="activation">Activer l\'envoi direct au Drive</button>');return}
     const tp=photosNum().length,rd=resumeDrive();
     h+='<p class="total">'+tp+' photo'+s_(tp)+' au total</p><div class="row"><button type="button" class="send wide" data-act="send">Envoyer à Claude</button><button type="button" class="wide" data-act="copyAll">Copier tout</button></div>'+
       '<p class="dst'+(rd&&rd.c?" "+rd.c:"")+'" id="dst">'+esc(rd?rd.t:"")+'</p>'+(drive&&visit.dossier?lienDossier():'')+(drive?'':'<button type="button" class="lnk" data-act="activation">Activer l\'envoi direct au Drive</button>')+'<p class="st" id="st">'+esc(stTxt)+'</p>';
