@@ -234,6 +234,7 @@ let extra=LS.get("pa_extra2")||{};Object.keys(extra).forEach(k=>{extra[k]=Array.
 let hidden=LS.get("pa_hidden")||[];
 let view="home",cur=null,edit=false,open=null,photoFor=null,viewer=null;
 const itemsOf=cid=>visit.items.filter(i=>i.cat===cid);
+const ordre=c=>{const its=itemsOf(c.id);return c.excl?[...its.filter(i=>!i.libre),...its.filter(i=>i.libre)]:its};
 const item=id=>visit.items.find(i=>i.id===id);
 const patsOf=c=>[...c.p,...(extra[c.id]||[])];
 const shown=c=>patsOf(c).filter(p=>edit||!hidden.includes(c.id+"|"+p.n));
@@ -257,10 +258,11 @@ function toggleZone(it,z){
   changed();
 }
 const titre=c=>c.id==="toit"&&visit.toitures?c.tp:c.id==="autre"&&(visit.autreTitre||"").trim()?visit.autreTitre.trim():c.t;
-function desc(c){const its=itemsOf(c.id),l=its.map(i=>i.constat.trim()).filter(Boolean);if(c.tail&&its.length)l.push(c.tail);return l}
+function desc(c){const its=ordre(c),l=its.map(i=>i.constat.trim()).filter(Boolean);if(c.tail&&its.length)l.push(c.tail);return l}
 function conseilAuto(c){
   const its=itemsOf(c.id),out=[];
-  its.forEach(i=>(i.k||[]).forEach(b=>{if(!out.includes(b))out.push(b)}));
+  const pre=c.excl?its.filter(i=>!i.libre):[];
+  (pre.length?pre:its).forEach(i=>(i.k||[]).forEach(b=>{if(!out.includes(b))out.push(b)}));
   (c.k||[]).forEach(b=>{if(!out.includes(b))out.push(b)});
   if(c.k||!its.some(i=>!i.k))return out;
   const ds=[];its.filter(i=>!i.k).forEach(i=>{if(i.d&&!ds.includes(i.d))ds.push(i.d)});
@@ -349,11 +351,11 @@ function render(){
   const v=$("view");
   if(view==="home"){
     v.innerHTML='<div class="grid">'+CATS.map(c=>{const n=itemsOf(c.id).length;return '<button type="button" class="cat'+(n?" has":"")+'" data-c="'+c.id+'"><span>'+esc(c.s)+'</span><small>'+(n?n+" relevée"+(n>1?"s":""):c.libreCat&&!shown(c).length?"Tu écris ce que tu veux":shown(c).length+" proposées")+'</small></button>'}).join("")+'</div>'+
-    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 3 du 25/11/2026</p>';
+    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 4 du 25/11/2026</p>';
   }else if(view==="cat"){
     const c=CAT(cur),ps=shown(c);
     let h='<button type="button" class="back" data-act="home">‹ Catégories</button><h2>'+esc(c.t)+'</h2>';
-    if(c.excl&&!edit)h+='<p class="sub">Un seul choix dans cette catégorie.</p>';
+    if(c.excl&&!edit)h+='<p class="sub">Une seule phrase au choix. Tes « Autre » s\'ajoutent en plus, autant que tu veux.</p>';
     if(c.libreCat&&!edit)h+='<label for="atitre">Titre de la rubrique</label><input type="text" id="atitre" placeholder="Ex. : Au niveau de l\'électricité" value="'+esc(visit.autreTitre||"")+'"><p class="note">Laissé vide : « Autres observations ».</p>';
     h+='<div class="list">'+ps.map((p,i)=>{
       if(edit){const off=hidden.includes(c.id+"|"+p.n);return '<button type="button" class="pat" data-h="'+i+'"><span class="'+(off?"off":"")+'">'+esc(p.n)+'</span><span class="tag'+(off?" gris":"")+'">'+(off?"Masquée":"Affichée")+'</span></button>'}
@@ -368,7 +370,7 @@ function render(){
     h+='<div class="row"><button type="button" class="send wide" data-act="send">Envoyer dans Claude</button><button type="button" class="wide" data-act="copyAll">Copier tout</button></div><p class="st" id="st">'+esc(stTxt)+'</p>';
     catsUsed().forEach(c=>{const its=itemsOf(c.id),phs=its.flatMap(i=>i.ph.map(p=>[i,p]));
       h+='<section class="card"><h3>'+esc(titre(c))+'</h3>'+(c.id==="toit"?'<button type="button" class="chip'+(visit.toitures?" on":"")+'" data-act="toitures">Plusieurs toitures</button>':'')+
-      its.map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||"Autre : constat à écrire")+'</button>').join("")+
+      ordre(c).map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||"Autre : constat à écrire")+'</button>').join("")+
       (c.tail?'<p class="tail">• '+esc(c.tail)+'</p>':'')+
       '<label for="cons-'+c.id+'">Conseil</label><textarea id="cons-'+c.id+'" data-cons="'+c.id+'">'+esc(consText(c))+'</textarea>'+
       (visit.cons[c.id]!=null?'<button type="button" class="lnk" data-rc="'+c.id+'">Remettre le conseil automatique</button>':'')+
@@ -380,7 +382,10 @@ function render(){
   fitAll(v);
 }
 function showPanel(h){open=null;const pn=$("panel");pn.classList.remove("hasfoot");pn.innerHTML=h;$("sheet").classList.add("on");fitAll(pn)}
-function closeSheet(){const it=open&&item(open);if(it&&it.libre&&!it.t.trim()){removeItem(it);changed()}$("sheet").classList.remove("on");open=null;render()}
+function syncSheet(){const it=open&&item(open);if(!it)return;const sl=$("sl"),sc=$("sc");
+  if(sl&&sl.value!==it.t){it.t=sl.value;it.constat=build(it);changed()}
+  if(sc&&sc.value!==it.constat){it.constat=sc.value;it.auto=sc.value===build(it);changed()}}
+function closeSheet(){syncSheet();const it=open&&item(open);if(it&&it.libre&&!it.t.trim()){removeItem(it);changed()}$("sheet").classList.remove("on");open=null;render()}
 function openSheet(id){open=id;$("sheet").classList.add("on");renderSheet();$("panel").scrollTop=0}
 function renderSheet(){
   const it=open&&item(open);if(!it)return;const c=CAT(it.cat),seen={};
@@ -399,14 +404,14 @@ function closeViewer(){$("big").classList.remove("on");viewer=null}
 
 /* ---------- Actions ---------- */
 function addItem(c,p){
-  if(c.excl)itemsOf(c.id).forEach(removeItem);
+  if(c.excl&&!p.libre)itemsOf(c.id).filter(i=>!i.libre).forEach(removeItem);
   const it={id:uid("i"),cat:c.id,nom:p.n,t:p.c,nz:!!p.nz,d:p.d||c.d||"",k:p.k||null,zones:[],ph:[],auto:true};
   if(p.libre){it.libre=true;if(c.id==="ami")it.k=K_AMI}
   it.constat=build(it);visit.items.push(it);changed();return it;
 }
 function go(v){view=v;render();window.scrollTo(0,0)}
 document.addEventListener("click",e=>{
-  const b=e.target.closest("button,img[data-v]");if(!b||b.disabled)return;const a=b.dataset.act;
+  const b=e.target.closest("button,img[data-v]");if(!b||b.disabled)return;const a=b.dataset.act;syncSheet();
   if(b.id==="homeBtn"){if($("sheet").classList.contains("on"))closeSheet();go("home")}
   else if(b.id==="relBtn"){if($("sheet").classList.contains("on"))closeSheet();edit=false;go("rel")}
   else if(b.id==="editBtn"){edit=!edit;render()}
@@ -446,6 +451,7 @@ document.addEventListener("click",e=>{
     (extra[c.id]=extra[c.id]||[]).push({n,c:t,d:c.d||""});LS.set("pa_extra2",extra);closeSheet();toast("Pathologie ajoutée")}
 });
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
+document.addEventListener("compositionend",e=>{if(e.target.id==="sl"||e.target.id==="sc")syncSheet()});
 document.addEventListener("input",e=>{
   const t=e.target;if(t.tagName==="TEXTAREA")fit(t);
   if(t.id==="sc"){const it=item(open);if(!it)return;it.constat=t.value;it.auto=t.value===build(it);changed()}
