@@ -383,13 +383,22 @@ async function partager(){
    Chaque photo part une fois (le script Google ne la garde qu'en un exemplaire), puis le relevé :
    Relevé.txt à jour, photos renumérotées, photos retirées de l'appli mises à la corbeille du Drive. */
 let syncing=false,again=false,syncT=null,essai=0,dErr="",dCode="",pret=false,panelDrive=false;
-function activer(){
-  const m=/^#lien=([\w-]+)/.exec(location.hash||"");if(!m)return false;
-  try{history.replaceState(history.state,"",location.pathname+location.search)}catch(e){}
+function lireLien(txt){
+  const m=/#lien=([\w-]+)/.exec(String(txt||""));if(!m)return false;
   try{const o=JSON.parse(atob(m[1].replace(/-/g,"+").replace(/_/g,"/")));
     if(o&&okUrl(o.u)&&typeof o.k==="string"&&o.k.length>=20){drive={u:o.u,k:o.k};LS.set("pa_drive",drive);return true}}catch(e){}
   return "bad";
 }
+function activer(){
+  if(!/^#lien=/.test(location.hash||""))return false;
+  const r=lireLien(location.hash);
+  try{history.replaceState(history.state,"",location.pathname+location.search)}catch(e){}
+  return r;
+}
+/* secours : lien copié dans Claude puis collé ici, s'il ne s'ouvre pas dans l'appli */
+const blocColler='<label for="lienAct">Ou colle ici le lien d\'activation envoyé par Claude</label><input type="text" id="lienAct" placeholder="https://diagproeco.github.io/pathologies/#lien=…" autocomplete="off" spellcheck="false"><div class="row"><button type="button" class="main" data-act="activerColle">Activer</button></div>';
+const panneauActivation=()=>showPanel('<h2>Activer l\'envoi direct</h2><p>Ouvre une fois, sur ce téléphone, le lien d\'activation que Claude t\'a envoyé.</p>'+blocColler+'<div class="row"><button type="button" data-act="close">Annuler</button></div>');
+const lienDossier=()=>'<a class="lnk" id="lienDrive" href="'+esc(visit.dossier)+'" target="_blank" rel="noopener">Voir le dossier dans le Drive</a>';
 function nomDossier(){const d=new Date(visit.debut),p=x=>String(x).padStart(2,"0");
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+(visit.nom.trim()||"visite de "+d.getHours()+" h "+p(d.getMinutes()))}
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=(Math.imul(h,33)^s.charCodeAt(i))>>>0;return h.toString(36)+"."+s.length.toString(36)}
@@ -414,7 +423,7 @@ function resumeDrive(){
 function majDrive(){
   updateBar();
   const r=resumeDrive(),el=$("dst");
-  if(el){el.textContent=r?r.t:"";el.className="dst"+(r&&r.c?" "+r.c:"")}
+  if(el){el.textContent=r?r.t:"";el.className="dst"+(r&&r.c?" "+r.c:"");if(drive&&visit.dossier&&!$("lienDrive"))el.insertAdjacentHTML("afterend",lienDossier())}
   if(panelDrive&&$("sheet").classList.contains("on"))panneauEnvoi();
 }
 const enB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=()=>rej({code:"lecture"});r.readAsDataURL(b)});
@@ -474,7 +483,7 @@ function panneauEnvoi(){
 }
 function envoyerClaude(){
   if(!visit.items.length)return toast("Rien à envoyer pour l'instant");
-  if(!drive)return showPanel('<h2>Envoi direct pas encore activé</h2><p>Sur ce téléphone, ouvre une fois le lien d\'activation que Claude t\'a envoyé. Après, tout part tout seul dans ton Drive.</p><div class="row"><button type="button" data-act="share">Partager quand même</button><button type="button" class="main" data-act="close">OK</button></div>');
+  if(!drive)return showPanel('<h2>Envoi direct pas encore activé</h2><p>Sur ce téléphone, ouvre une fois le lien d\'activation que Claude t\'a envoyé. Après, tout part tout seul dans ton Drive.</p>'+blocColler+'<div class="row"><button type="button" data-act="share">Partager quand même</button><button type="button" data-act="close">Fermer</button></div>');
   showPanel("");panelDrive=true;essai=0;dErr="";panneauEnvoi();sync();
 }
 async function testDrive(){
@@ -512,7 +521,7 @@ function render(){
     if(!visit.items.length){v.innerHTML=h+'<p class="empty">Aucune pathologie relevée pour l\'instant.<br>Choisis une catégorie en bas à gauche.</p>';return}
     const tp=photosNum().length,rd=resumeDrive();
     h+='<p class="total">'+tp+' photo'+s_(tp)+' au total</p><div class="row"><button type="button" class="send wide" data-act="send">Envoyer à Claude</button><button type="button" class="wide" data-act="copyAll">Copier tout</button></div>'+
-      '<p class="dst'+(rd&&rd.c?" "+rd.c:"")+'" id="dst">'+esc(rd?rd.t:"")+'</p>'+(drive&&visit.dossier?'<a class="lnk" href="'+esc(visit.dossier)+'" target="_blank" rel="noopener">Voir le dossier dans le Drive</a>':'')+'<p class="st" id="st">'+esc(stTxt)+'</p>';
+      '<p class="dst'+(rd&&rd.c?" "+rd.c:"")+'" id="dst">'+esc(rd?rd.t:"")+'</p>'+(drive&&visit.dossier?lienDossier():'')+(drive?'':'<button type="button" class="lnk" data-act="activation">Activer l\'envoi direct au Drive</button>')+'<p class="st" id="st">'+esc(stTxt)+'</p>';
     catsUsed().forEach(c=>{const its=ordre(c),phs=its.flatMap(i=>i.ph.map(p=>[i,p]));
       h+='<section class="card"><h3>'+esc(titre(c))+'</h3>'+(c.id==="toit"?'<button type="button" class="chip'+(visit.toitures?" on":"")+'" data-act="toitures">Plusieurs toitures</button>':'')+
       ordre(c).map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||"Autre : constat à écrire")+'</button>').join("")+
@@ -611,6 +620,8 @@ document.addEventListener("click",e=>{
   else if(a==="send")envoyerClaude();
   else if(a==="share")partager();
   else if(a==="copyMsg")copy(msgClaude(),"Message copié");
+  else if(a==="activation")panneauActivation();
+  else if(a==="activerColle"){const r=lireLien(($("lienAct")||{}).value);if(r===true)apresActivation(true);else toast(r==="bad"?"Lien illisible : recopie-le en entier":"Ce n'est pas le lien d'activation")}
   else if(a==="reset"){if(!b.dataset.sure){const ed=etatDrive(),pasFini=drive?(ed.att>0||!ed.rel):!visit.envoye;b.dataset.sure=1;
       b.textContent=pasFini?(drive?"Pas encore tout dans le Drive : toucher encore pour tout effacer":"Pas encore envoyée : toucher encore pour tout effacer"):"Toucher encore pour vider le relevé";return}
     visit.items.forEach(i=>i.ph.forEach(p=>{if(urls[p.f])URL.revokeObjectURL(urls[p.f]);delete urls[p.f];delete blobs[p.f];idbDel(p.f)}));
