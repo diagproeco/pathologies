@@ -73,6 +73,10 @@ textarea{min-height:88px;resize:vertical}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
 .card h3{margin:0 0 6px;font-size:17px;line-height:1.3}
 .it{display:flex;width:100%;justify-content:flex-start;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 0;min-height:44px;background:none;line-height:1.4}
+.itl{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.itl .it{flex:1;border-bottom:0}
+.itph{flex:none;min-height:44px;padding:6px 12px;font-size:15px}
+.nph{color:var(--g);font-weight:600;margin-left:4px}
 .it::before{content:"•";color:var(--g);font-weight:800;margin-right:8px}
 .tail{color:var(--mute);font-size:15px;margin:10px 0 0}
 .manuel .sub{margin:8px 0 0}
@@ -516,7 +520,7 @@ function render(){
     const md=mode==="dictee";
     v.innerHTML=(edit?'':'<div class="modes" role="group" aria-label="Façon de remplir le relevé"><button type="button" data-mode="dictee" class="'+(md?"on":"")+'" aria-pressed="'+md+'">Dictée</button><button type="button" data-mode="liste" class="'+(md?"":"on")+'" aria-pressed="'+!md+'">Liste</button></div>')+
     '<div class="grid">'+(edit?CATS:allCats()).map(c=>{const n=itemsOf(c.id).length;return '<button type="button" class="cat'+(n?" has":"")+'" data-c="'+c.id+'"><span>'+esc(c.s)+'</span><small>'+(n?n+" relevée"+(n>1?"s":""):c.libreCat?"Aucun constat":md?"Toucher pour dicter":shown(c).length+" proposées")+'</small></button>'}).join("")+(edit?'':'<button type="button" class="cat plus" data-act="newAutre"><span>+ Autre catégorie</span><small>Ton titre, tes constats</small></button>')+'</div>'+
-    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":md?"Touche une catégorie, puis le micro du clavier : dicte la pathologie et l'endroit. Ajoute une photo si tu veux.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 8 du 25/11/2026</p>';
+    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":md?"Touche une catégorie, puis le micro du clavier : dicte la pathologie et l'endroit. Ajoute une photo si tu veux.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 9 du 27/11/2026</p>';
   }else if(view==="cat"){
     const c=CAT(cur),ps=shown(c);
     let h='<button type="button" class="back" data-act="home">‹ Catégories</button><h2 id="ct">'+esc(c.libreCat?c.s:c.t)+'</h2>';
@@ -539,7 +543,7 @@ function render(){
       '<p class="dst'+(rd&&rd.c?" "+rd.c:"")+'" id="dst">'+esc(rd?rd.t:"")+'</p>'+(drive&&visit.dossier?lienDossier():'')+(drive?'':'<button type="button" class="lnk" data-act="activation">Activer l\'envoi direct au Drive</button>')+'<p class="st" id="st">'+esc(stTxt)+'</p>';
     catsUsed().forEach(c=>{const its=ordre(c),phs=its.flatMap(i=>i.ph.map(p=>[i,p]));
       h+='<section class="card"><h3>'+esc(titre(c))+'</h3>'+(c.id==="toit"?'<button type="button" class="chip'+(visit.toitures?" on":"")+'" data-act="toitures">Plusieurs toitures</button>':'')+
-      ordre(c).map(i=>'<button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||(i.dict?"Photo sans dictée : touche pour dicter":"Autre : constat à écrire"))+'</button>').join("")+
+      ordre(c).map(i=>'<div class="itl"><button type="button" class="it" data-it="'+i.id+'">'+esc(i.constat||(i.dict?"Photo sans dictée : touche pour dicter":"Autre : constat à écrire"))+(i.ph.length?' <small class="nph">('+i.ph.length+' photo'+s_(i.ph.length)+')</small>':'')+'</button><button type="button" class="send itph" data-ph="'+i.id+'" aria-label="Ajouter une photo à cette pathologie">+ Photo</button></div>').join("")+
       (c.tail?'<p class="tail">• '+esc(c.tail)+'</p>':'')+
       '<label for="cons-'+c.id+'">Conseil</label><textarea id="cons-'+c.id+'" data-cons="'+c.id+'">'+esc(consText(c))+'</textarea>'+
       (visit.cons[c.id]!=null?manuel(c.id):'')+
@@ -622,6 +626,7 @@ document.addEventListener("click",e=>{
   else if(b.dataset.p!==undefined){const c=CAT(cur),p=shown(c)[+b.dataset.p];if(!p)return;let it=visit.items.find(x=>x.cat===c.id&&x.nom===p.n);if(!it){it=addItem(c,p);toast("Ajouté au relevé")}render();openSheet(it.id)}
   else if(b.dataset.h!==undefined){const c=CAT(cur),p=shown(c)[+b.dataset.h];if(!p)return;const k=c.id+"|"+p.n;hidden=hidden.includes(k)?hidden.filter(x=>x!==k):[...hidden,k];LS.set("pa_hidden",hidden);render()}
   else if(b.dataset.z){const it=item(open);if(!it)return;toggleZone(it,b.dataset.z);b.classList.toggle("on",it.zones.includes(b.dataset.z));const sc=$("sc");if(sc){sc.value=it.constat;fit(sc)}const ap=$("apercu");if(ap)ap.textContent=apercu(it)}
+  else if(b.dataset.ph){if(!item(b.dataset.ph))return;photoFor=b.dataset.ph;$("cam").click()}
   else if(b.dataset.it)openSheet(b.dataset.it);
   else if(b.dataset.rc){delete visit.cons[b.dataset.rc];changed();render()}
   else if(b.dataset.cd)copy(texteDesc(CAT(b.dataset.cd)),"Description copiée");
