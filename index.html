@@ -422,9 +422,12 @@ function nomDossier(){const d=new Date(visit.debut),p=x=>String(x).padStart(2,"0
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+(visit.nom.trim()||"visite de "+d.getHours()+" h "+p(d.getMinutes()))}
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=(Math.imul(h,33)^s.charCodeAt(i))>>>0;return h.toString(36)+"."+s.length.toString(36)}
 const sigReleve=all=>hash(nomDossier()+"\n"+entete()+corps(all)+"\n"+all.filter(x=>x.p.up===1).map(x=>x.p.f+"="+x.name).join("|"));
+/* Contrôle pour Claude : chaque pathologie a-t-elle sa photo ? */
+function controlePhotos(){const sans=[];catsUsed().forEach(c=>ordre(c).forEach(i=>{if(!i.ph.length)sans.push(c.s+" : "+(nomAff(i)||"constat vide"))}));
+  return sans.length?"CONTRÔLE PHOTOS : "+sans.length+" pathologie"+s_(sans.length)+" sans photo :\n"+sans.map(x=>"- "+x).join("\n")+"\n":"CONTRÔLE PHOTOS : chaque pathologie a au moins une photo.\n"}
 function texteDrive(all){const n=new Date();
   return entete()+(all.length?all.length+" photo"+s_(all.length)+" dans ce dossier du Drive : le numéro est au début du nom de chaque photo.\n":"Aucune photo.\n")+
-    (visit.items.some(i=>i.dict)?"Les lignes [dictée] sont la dictée brute, à mettre au propre.\n":"")+
+    (visit.items.some(i=>i.dict)?"Les lignes [dictée] sont la dictée brute, à mettre au propre.\n":"")+controlePhotos()+
     "\n"+corps(all)+"\n\nMis à jour le "+n.toLocaleDateString("fr-FR")+" à "+n.getHours()+" h "+String(n.getMinutes()).padStart(2,"0")+"."}
 const msgClaude=()=>"Récupère ma visite "+(visit.nom.trim()?"« "+visit.nom.trim()+" » ":"")+"dans le Drive (dossier Pathologies audit).";
 function etatDrive(){const all=photosNum(),up=all.filter(x=>x.p.up===1).length,perdu=pret?all.filter(x=>x.p.up!==1&&!blobs[x.p.f]).length:0;
@@ -525,7 +528,7 @@ function render(){
     const md=mode==="dictee";
     v.innerHTML=(edit?'':'<div class="modes" role="group" aria-label="Façon de remplir le relevé"><button type="button" data-mode="dictee" class="'+(md?"on":"")+'" aria-pressed="'+md+'">Dictée</button><button type="button" data-mode="liste" class="'+(md?"":"on")+'" aria-pressed="'+!md+'">Liste</button></div>')+
     '<div class="grid">'+(edit?CATS:allCats()).map(c=>{const its=itemsOf(c.id),n=its.length,np=its.reduce((a,i)=>a+i.ph.length,0);return '<button type="button" class="cat'+(n?" has":"")+'" data-c="'+c.id+'"><span>'+esc(c.s)+'</span><small>'+(n?n+" relevée"+(n>1?"s":"")+" · "+np+" photo"+s_(np):c.libreCat?"Aucun constat":md?"Toucher pour dicter":shown(c).length+" proposées")+'</small></button>'}).join("")+(edit?'':'<button type="button" class="cat plus" data-act="newAutre"><span>+ Autre catégorie</span><small>Ton titre, tes constats</small></button>')+'</div>'+
-    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":md?"Touche une catégorie, puis le micro du clavier : dicte la pathologie et l'endroit. Ajoute une photo si tu veux.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 11 du 27/11/2026</p>';
+    '<p class="note">'+(edit?"Choisis une catégorie pour ajouter ou masquer des pathologies.":md?"Touche une catégorie, puis le micro du clavier : dicte la pathologie et l'endroit. Ajoute une photo si tu veux.":"Liste proposée, à valider : « Modifier la liste » pour ajouter ou masquer des pathologies.")+'</p><p class="note">Version 12 du 27/11/2026</p>';
   }else if(view==="cat"){
     const c=CAT(cur),ps=shown(c);
     let h='<button type="button" class="back" data-act="home">‹ Catégories</button><h2 id="ct">'+esc(c.libreCat?c.s:c.t)+'</h2>';

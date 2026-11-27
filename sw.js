@@ -1,6 +1,6 @@
 /* Pathologies audit : garde une copie de l'appli pour l'ouvrir sans réseau.
    Page : réseau d'abord, toujours la dernière version (3,5 s au plus), sinon la copie ; le reste : la copie d'abord. */
-const CACHE = "pathologies-v11";
+const CACHE = "pathologies-v12";
 const FICHIERS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./icon-180.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FICHIERS)).then(() => self.skipWaiting()));
